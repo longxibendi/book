@@ -32,4 +32,209 @@ cmake -DCMAKE_INSTALL_PREFIX=/home/mysql/mysql8 \
 make -j 8
 make install
 
-三.instal
+三.start server
+
+/usr/sbin/groupadd mysql
+/usr/sbin/useradd -g mysql mysql
+
+chown -R mysql:mysql /home/mysql/
+su mysql
+
+cd /home/mysql/mysql8
+mkdir log
+mkdir tmp
+
+vim /home/mysql/mysql8/etc/my.cnf
+
+[client]
+port                     = 5858
+socket                   = /home/mysql/mysql8/tmp/mysql.sock
+
+[mysqld]
+
+!include /home/mysql/mysql8/etc/mysqld.cnf
+
+port                     = 5858
+socket                   = /home/mysql/mysql8/tmp/mysql.sock
+pid-file                 = /home/mysql/mysql8/var/mysql.pid
+basedir                  = /home/mysql/mysql8/
+datadir                  = /home/mysql/mysql8/var/
+
+# tmp dir settings
+tmpdir                   = /home/mysql/mysql8/tmp/
+slave-load-tmpdir        = /home/mysql/mysql8/tmp/
+
+# 
+language                 = /home/mysql/mysql8/share/english/
+character-sets-dir       = /home/mysql/mysql8/share/charsets/
+
+# skip options 
+skip-name-resolve
+skip-symbolic-links
+skip-external-locking
+skip-slave-start
+
+default_authentication_plugin   = mysql_native_password
+
+#sysdate-is-now
+
+# res settings
+back_log                 = 50
+max_connections          = 1000
+max_connect_errors       = 10000
+#open_files_limit         = 10240
+
+connect-timeout          = 5
+wait-timeout             = 28800
+interactive-timeout      = 28800
+slave-net-timeout        = 600
+net_read_timeout         = 30
+net_write_timeout        = 60
+net_retry_count          = 10
+net_buffer_length        = 16384
+max_allowed_packet       = 64M
+
+# 
+table_open_cache         = 512
+thread_stack             = 192K
+thread_cache_size        = 20
+
+
+# default settings
+# time zone
+default-time-zone        = system
+character-set-server     = utf8mb4
+default-storage-engine   = InnoDB
+
+# tmp & heap 
+tmp_table_size           = 512M
+max_heap_table_size      = 512M
+
+log-bin                  = mysql-bin
+log-bin-index            = mysql-bin.index
+
+relay-log                = relay-log
+relay_log_index          = relay-log.index
+
+# warning & error log
+log-error                = /home/mysql/mysql8/log/mysql.err
+log_output               = FILE
+
+# slow query log
+long-query-time          = 1
+slow_query_log_file      = /home/mysql/mysql8/log/slow.log
+#log-queries-not-using-indexes
+# general query log
+general_log              = 1
+general_log_file         = /home/mysql/mysql8/log/mysql.log
+max_binlog_size          = 1G
+max_relay_log_size       = 1G
+
+# if use auto-ex, set to 0
+relay-log-purge          = 1
+
+# max binlog keeps days
+expire_logs_days         = 15
+
+binlog_cache_size        = 1M
+sync_binlog              = 1
+
+# replication
+replicate-wild-ignore-table     = mysql.%
+replicate-wild-ignore-table     = test.%
+replicate-wild-ignore-table     = information_schema.%
+# slave_skip_errors=all
+
+key_buffer_size                 = 256M
+sort_buffer_size                = 2M
+read_buffer_size                = 2M
+join_buffer_size                = 8M
+read_rnd_buffer_size            = 8M
+bulk_insert_buffer_size         = 64M
+
+transaction_isolation           = REPEATABLE-READ
+
+innodb_file_per_table
+
+#innodb_status_file             = 1
+innodb_open_files              = 2048
+innodb_buffer_pool_size         = 50M
+innodb_data_home_dir            = /home/mysql/mysql8/var/
+innodb_data_file_path           = ibdata1:100M:autoextend
+innodb_thread_concurrency       = 1
+innodb_flush_log_at_trx_commit  = 1
+
+innodb_log_buffer_size          = 8M
+innodb_log_file_size            = 190M
+#innodb_log_files_in_group       = 2
+innodb_log_group_home_dir       = /home/mysql/mysql8/var/
+
+innodb_max_dirty_pages_pct      = 90
+innodb_lock_wait_timeout        = 50
+#innodb_flush_method            = O_DSYNC
+
+[mysqldump]
+quick
+max_allowed_packet              = 64M
+
+[mysql]
+disable-auto-rehash
+default-character-set           = utf8mb4
+connect-timeout                 = 3
+
+[isamchk]
+key_buffer = 256M
+sort_buffer_size = 256M
+read_buffer = 2M
+write_buffer = 2M
+
+[myisamchk]
+key_buffer = 256M 
+sort_buffer_size = 256M
+read_buffer = 2M
+write_buffer = 2M
+
+[mysqlhotcopy]
+interactive-timeout
+
+vim /home/mysql/mysql8/etc/mysqld.cnf
+
+[mysqld]
+server-id   = 1
+
+#read_only
+#log-slave-updates
+
+bin/mysqld --defaults-file=/home/mysql/mysql8/etc/my.cnf --initialize --user=mysql 
+su root
+rm -rf /etc/my.cnf
+su mysql
+cp /home/mysql/mysql8/support-files/mysql.server  /home/mysql/mysql8/bin/
+/home/mysql/mysql8/bin/mysql.server start
+
+四.update root password
+
+#find password from /home/mysql/mysql8/log/mysql.err
+less /home/mysql/mysql8/log/mysql.err
+2018-12-14T02:38:00.529958Z 5 [Note] [MY-010454] [Server] A temporary password is generated for root@localhost: <dIsxtNxZ7!f
+
+mysql@bogon mysql8]$ bin/mysql -uroot -p'<dIsxtNxZ7!f'  -P5858            
+mysql: [Warning] Using a password on the command line interface can be insecure.
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 12
+Server version: 8.0.13
+
+Copyright (c) 2000, 2018, Oracle and/or its affiliates. All rights reserved.
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> ALTER USER 'root'@'localhost' IDENTIFIED WITH sha256_password BY '' PASSWORD EXPIRE INTERVAL 360 DAY;
+Query OK, 0 rows affected (0.11 sec)
+
+mysql> create user 't'@'%' identified by '123456';
+Query OK, 0 rows affected (0.07 sec)
+
+mysql> grant select,update,delete,insert on *.* to 't'@'%';
+Query OK, 0 rows affected (0.06 sec)
